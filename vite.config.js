@@ -19,7 +19,8 @@ function getLanIP() {
 
 const lanIP = getLanIP()
 
-const repoBase = '/UTClientVersionDashbroad/'
+const repoName = process.env.GITHUB_REPOSITORY?.split('/')[1] ?? 'DashbroadClientVersion'
+const repoBase = `/${repoName}/`
 const usePagesBase = process.env.GITHUB_PAGES === 'true' || process.env.npm_lifecycle_event === 'build:pages'
 
 export default defineConfig({
