@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A-Scan — Float</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #060d1a; color: #e2eaf5;
+            font-family: 'Inter', sans-serif;
+            height: 100vh; overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+        .float-topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 5px 14px; background: #0d1b2e;
+            border-bottom: 1px solid #1e3352; flex-shrink: 0;
+        }
+        .float-topbar-title {
+            font-size: 12px; font-weight: 700; letter-spacing: .08em; color: #00d4ff; text-transform: uppercase;
+        }
+        .float-badge {
+            display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px;
+            border-radius: 20px; font-size: 10px; font-weight: 600; letter-spacing: .05em;
+            text-transform: uppercase;
+            background: rgba(0,212,255,.10); color: #00d4ff; border: 1px solid rgba(0,212,255,.25);
+        }
+        .float-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 5px; font-size: 10px; font-weight: 700;
+            cursor: pointer; border: 1px solid rgba(0,212,255,.28);
+            background: rgba(0,212,255,.12); color: #00d4ff;
+            letter-spacing: .04em; transition: all .12s;
+        }
+        .float-btn:hover { background: rgba(0,212,255,.22); box-shadow: 0 0 10px rgba(0,212,255,.18); }
+        .float-btn-dock { background: rgba(245,158,11,.12); color: #f59e0b; border-color: rgba(245,158,11,.3); }
+        .float-btn-dock:hover { background: rgba(245,158,11,.22); box-shadow: 0 0 10px rgba(245,158,11,.18); }
+        .float-panel-body { flex: 1; position: relative; overflow: hidden; background: #060d1a; }
+        .float-panel-body .vtk-container { position: absolute; top: 36px; left: 36px; width: calc(100% - 44px); height: calc(100% - 64px); }
+        .float-panel-body canvas#floatOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 2; pointer-events: auto; cursor: ns-resize;
+        }
+        .float-panel-body .vtk-container canvas { background: #060d1a; display: block; }
+        .float-topbar-meta { display: flex; align-items: center; gap: 12px; font-size: 10px; color: #6b8aaa; }
+        .float-statusbar {
+            display: flex; align-items: center; gap: 14px;
+            padding: 4px 14px; background: #0d1b2e;
+            border-top: 1px solid #1e3352; flex-shrink: 0;
+            font-size: 10px; color: #6b8aaa;
+        }
+        .sync-indicator {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 600;
+        }
+        .sync-indicator.live { background: rgba(52,211,153,.12); color: #34d399; }
+    </style>
+  <script type="module" crossorigin src="/UTClientVersionDashbroad/assets/aScanFloat-Bma-OfEw.js"></script>
+  <link rel="modulepreload" crossorigin href="/UTClientVersionDashbroad/assets/vtk-shared-kyL5FeH_.js">
+  <link rel="modulepreload" crossorigin href="/UTClientVersionDashbroad/assets/modulepreload-polyfill-Dezn_h7o.js">
+  <meta name="network-lan-ip" content="10.10.2.15">
+</head>
+<body>
+    <div class="float-topbar">
+        <div style="display:flex;align-items:center;gap:10px">
+            <span class="float-topbar-title">A-Scan</span>
+            <span class="float-badge">RF Waveform · Float</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+            <span class="float-topbar-meta" id="floatMeta">Threshold: <b id="floatThreshDisplay">—</b></span>
+            <button class="float-btn float-btn-dock" id="floatDockBtn">⤓ Dock</button>
+        </div>
+    </div>
+    <div class="float-panel-body" id="floatPanelBody">
+        <div class="vtk-container active" id="floatVtkContainer" style="position:absolute"></div>
+        <canvas id="floatOverlay"></canvas>
+    </div>
+    <div class="float-statusbar">
+        <span id="floatStatusMsg">Ready — awaiting sync from main dashboard</span>
+    </div>
+
+</body>
+</html>

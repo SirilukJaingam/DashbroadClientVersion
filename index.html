@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C-Scan & Pipe Tally Suite — vtk.js</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        :root {
+            --bg-deep:   #060d1a;
+            --bg-panel:  #0d1b2e;
+            --bg-card:   #111f35;
+            --border:    #1e3352;
+            --border-hi: #2a4a72;
+            --accent:    #00d4ff;
+            --accent2:   #34d399;
+            --accent3:   #f59e0b;
+            --accent4:   #f43f5e;
+            --text-pri:  #e2eaf5;
+            --text-sec:  #6b8aaa;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg-deep); color: var(--text-pri);
+            font-family: 'Inter', sans-serif;
+            height: 100vh; overflow: hidden;
+            display: flex; flex-direction: column; font-size: 13px;
+        }
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 6px 16px; background: var(--bg-panel);
+            border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
+        .topbar-title { font-size: 13px; font-weight: 700; letter-spacing: .08em; color: var(--accent); text-transform: uppercase; }
+        .topbar-meta  { font-size: 11px; color: var(--text-sec); font-family: 'JetBrains Mono', monospace; }
+        .status-dot   { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 6px var(--accent2); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        .badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+        .badge-live { background: rgba(52,211,153,.12); color: var(--accent2); border: 1px solid rgba(52,211,153,.3); }
+        .badge-mode { background: rgba(0,212,255,.10); color: var(--accent);  border: 1px solid rgba(0,212,255,.25); }
+        .panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .panel:hover { border-color: var(--border-hi); }
+        .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(0,0,0,.25); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .panel-title  { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-sec); }
+        .panel-tag    { font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: .06em; }
+        .tag-green { background: rgba(52,211,153,.15); color: var(--accent2); }
+        .tag-blue  { background: rgba(0,212,255,.12);  color: var(--accent);  }
+        .tag-amber { background: rgba(245,158,11,.15); color: var(--accent3); }
+        .tag-red   { background: rgba(244,63,94,.15);  color: var(--accent4); }
+        .panel-body { flex: 1; position: relative; overflow: hidden; }
+        .panel-body canvas { display: block; width: 100%; height: 100%; }
+        .vtk-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; z-index: 1; }
+.vtk-container canvas { background: #060d1a; display: block; }
+        .panel-body > canvas { display: block; width: 100%; height: 100%; }
+        #aScanOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: block; }
+        #bScanOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: block; }
+        #longOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: block; }
+        #cScanOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: block; }
+#rangeOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: block; }
+        .main-wrap  { flex: 1; display: flex; flex-direction: column; padding: 8px; gap: 0; overflow: hidden; min-height: 0; }
+        .scan-grid  { display: grid; grid-template-columns: 1fr 6px 1fr; grid-template-rows: 1fr 6px 1fr 6px 1fr; gap: 0; height: 58vh; }
+        .scan-grid > .panel-1 { grid-column: 1; grid-row: 1; }
+        .scan-grid > .panel-2 { grid-column: 3; grid-row: 1; }
+        .scan-grid > .panel-3 { grid-column: 1; grid-row: 3; }
+        .scan-grid > .panel-4 { grid-column: 3; grid-row: 3; }
+        .scan-grid > .panel-5 { grid-column: 1; grid-row: 5; }
+        .scan-grid > .panel-6 { grid-column: 3; grid-row: 5; }
+        .plots-row  { display: grid; grid-template-columns: 1fr 6px 1fr 6px 1fr; gap: 0; height: 130px; flex-shrink: 0; }
+        .plots-row > .chart-1 { grid-column: 1; }
+        .plots-row > .chart-2 { grid-column: 3; }
+        .plots-row > .chart-3 { grid-column: 5; }
+        .table-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+        .resize-handle-h {
+            width: 6px; height: 100%; cursor: col-resize; background: rgba(30,51,82,.25); z-index: 40; transition: background .12s, box-shadow .12s; position: relative;
+        }
+        .resize-handle-h:hover, .resize-handle-h.active {
+            background: var(--accent) !important; box-shadow: 0 0 10px var(--accent);
+        }
+        .resize-handle-v {
+            height: 6px; width: 100%; cursor: row-resize; background: rgba(30,51,82,.25); z-index: 40; transition: background .12s, box-shadow .12s; position: relative;
+        }
+        .resize-handle-v:hover, .resize-handle-v.active {
+            background: var(--accent) !important; box-shadow: 0 0 10px var(--accent);
+        }
+        #scanColSplitter { grid-column: 2; grid-row: 1 / span 5; }
+        #scanRowSplitter1 { grid-column: 1 / span 3; grid-row: 2; }
+        #scanRowSplitter2 { grid-column: 1 / span 3; grid-row: 4; }
+        #plotsSplitter1 { grid-column: 2; grid-row: 1; }
+        #plotsSplitter2 { grid-column: 4; grid-row: 1; }
+        .table-header  { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(0,0,0,.3); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .table-header-actions { display: flex; align-items: center; gap: 8px; }
+        .table-grid-wrap { flex: 1; min-height: 0; }
+        #tallyGrid { width: 100%; height: 100%; }
+        .panel-btn-grid { background: rgba(0,212,255,.12); color: var(--accent); border: 1px solid rgba(0,212,255,.28); }
+        .panel-btn-grid:hover { background: rgba(0,212,255,.22); box-shadow: 0 0 10px rgba(0,212,255,.18); }
+        .ag-theme-quartz.tally-grid-theme {
+            --ag-background-color: #0b1628;
+            --ag-foreground-color: #e2eaf5;
+            --ag-border-color: #1e3352;
+            --ag-header-background-color: rgba(0,0,0,.34);
+            --ag-header-foreground-color: #6b8aaa;
+            --ag-odd-row-background-color: rgba(255,255,255,.015);
+            --ag-row-hover-color: rgba(0,212,255,.05);
+            --ag-selected-row-background-color: rgba(0,212,255,.12);
+            --ag-font-family: 'Inter', sans-serif;
+            --ag-font-size: 11px;
+            --ag-cell-horizontal-padding: 10px;
+            --ag-header-height: 30px;
+            --ag-row-height: 32px;
+            --ag-wrapper-border-radius: 0;
+            --ag-header-column-resize-handle-color: rgba(0,212,255,.35);
+        }
+        .ag-theme-quartz.tally-grid-theme .ag-header-cell-text {
+            font-size: 9.5px;
+            font-weight: 600;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+        .ag-theme-quartz.tally-grid-theme .ag-cell {
+            font-family: 'JetBrains Mono', monospace;
+            border-color: rgba(30,51,82,.55);
+        }
+        .ag-theme-quartz.tally-grid-theme .ag-row.tally-row-ok .ag-cell { color: #34d399; }
+        .ag-theme-quartz.tally-grid-theme .ag-row.tally-row-warn .ag-cell { color: #f59e0b; }
+        .ag-theme-quartz.tally-grid-theme .ag-row.tally-row-flag .ag-cell { color: #f43f5e; }
+        .ag-theme-quartz.tally-grid-theme .ag-cell.status-cell { font-weight: 700; }
+        .table-scroll  { overflow-y: auto; flex: 1; }
+        .table-scroll::-webkit-scrollbar { width: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+        table { width: 100%; border-collapse: collapse; }
+        thead th { background: rgba(0,0,0,.4); color: var(--text-sec); padding: 5px 10px; font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; text-align: left; position: sticky; top: 0; border-bottom: 1px solid var(--border); }
+        tbody td  { padding: 5px 10px; font-size: 11.5px; font-family: 'JetBrains Mono', monospace; border-bottom: 1px solid rgba(30,51,82,.6); color: var(--text-pri); }
+        tbody tr:hover td { background: rgba(0,212,255,.04); }
+        tbody tr.row-ok   td { color: #34d399; }
+        tbody tr.row-warn td { color: #f59e0b; }
+        tbody tr.row-flag td { color: #f43f5e; }
+        .tooltip { position: absolute; background: rgba(6,13,26,.92); border: 1px solid var(--border-hi); border-radius: 6px; padding: 5px 9px; font-size: 10px; pointer-events: none; opacity: 0; transition: opacity .12s; color: var(--text-pri); font-family: 'JetBrains Mono', monospace; white-space: nowrap; z-index: 10; }
+        .color-popover {
+            position: absolute;
+            width: 196px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(0,212,255,.28);
+            background: rgba(6,13,26,.96);
+            box-shadow: 0 14px 34px rgba(0,0,0,.45);
+            z-index: 12;
+            display: none;
+        }
+        .color-popover.show { display: block; }
+        .color-popover-title { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+        .color-popover-sub { font-size: 9px; color: var(--text-sec); font-family: 'JetBrains Mono', monospace; margin-top: 2px; margin-bottom: 10px; }
+        .color-popover-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+        .color-popover-label { font-size: 10px; color: var(--text-sec); }
+        .color-popover-value { min-width: 40px; text-align: right; font-size: 10px; color: var(--text-pri); font-family: 'JetBrains Mono', monospace; }
+        .color-popover-slider { width: 100%; accent-color: #00d4ff; margin-bottom: 8px; }
+        .color-popover-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+        .btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 600; letter-spacing: .04em; cursor: pointer; border: none; transition: all .15s; }
+        .btn-primary { background: linear-gradient(135deg,#1d4ed8,#0ea5e9); color:#fff; border:1px solid rgba(0,212,255,.3); }
+        .btn-primary:hover { background: linear-gradient(135deg,#2563eb,#38bdf8); box-shadow:0 0 12px rgba(0,212,255,.35); }
+        .btn-success { background: linear-gradient(135deg,#065f46,#059669); color:#6ee7b7; border:1px solid rgba(52,211,153,.3); }
+        .btn-success:hover { background: linear-gradient(135deg,#047857,#10b981); box-shadow:0 0 12px rgba(52,211,153,.3); }
+        .btn-toggle { background: rgba(30,51,82,.8); color:var(--text-sec); border:1px solid var(--border); }
+        .btn-toggle:hover { border-color:var(--border-hi); color:var(--text-pri); }
+        .btn-toggle.active { background: rgba(0,212,255,.15); color:var(--accent); border-color:rgba(0,212,255,.4); box-shadow:0 0 8px rgba(0,212,255,.2); }
+        .panel-btn { display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:4px; font-size:9px; font-weight:700; cursor:pointer; border:none; letter-spacing:.04em; transition:all .12s; }
+        .panel-btn-3d { background:rgba(124,58,237,.2); color:#c4b5fd; border:1px solid rgba(124,58,237,.35); }
+        .panel-btn-3d:hover { background:rgba(124,58,237,.35); box-shadow:0 0 8px rgba(124,58,237,.3); }
+        .panel-btn-3d.active { background:rgba(124,58,237,.5); color:#ede9fe; box-shadow:0 0 12px rgba(124,58,237,.4); }
+        .toast { position:fixed; bottom:20px; right:20px; background:var(--bg-panel); border:1px solid var(--accent2); border-radius:10px; padding:10px 16px; display:flex; align-items:center; gap:10px; z-index:100; transform:translateY(80px); opacity:0; transition:all .3s cubic-bezier(.34,1.56,.64,1); pointer-events:none; }
+        .toast.show { transform:translateY(0); opacity:1; }
+        .toast-icon { font-size:16px; }
+        .toast-text { font-size:11px; color:var(--text-pri); font-weight:500; }
+        .toast-sub { font-size:9px; color:var(--text-sec); font-family:'JetBrains Mono',monospace; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:200; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+        .modal-overlay.show { display:flex; }
+        .modal-box { background:var(--bg-panel); border:1px solid var(--border-hi); border-radius:14px; padding:24px; min-width:340px; box-shadow:0 20px 60px rgba(0,0,0,.6); }
+        .modal-title { font-size:14px; font-weight:700; color:var(--text-pri); margin-bottom:4px; }
+        .modal-sub { font-size:10px; color:var(--text-sec); font-family:'JetBrains Mono',monospace; margin-bottom:16px; }
+        .modal-row { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); }
+        .modal-row:last-of-type { border:none; }
+        .modal-label { font-size:11px; color:var(--text-sec); }
+        .modal-value { font-size:11px; color:var(--text-pri); font-family:'JetBrains Mono',monospace; }
+        .modal-actions { display:flex; gap:8px; margin-top:16px; }
+        .modal-close { position:absolute; top:10px; right:14px; background:none; border:none; color:var(--text-sec); font-size:16px; cursor:pointer; }
+        /* 3D full-screen mode: hide all non-3D panels, panel-4 fills view */
+        .main-wrap.view3d-mode { gap: 0; padding: 0; }
+        .main-wrap.view3d-mode .scan-grid {
+            grid-template-columns: 1fr !important;
+            grid-template-rows: 1fr !important;
+            flex: 1; min-height: 0;
+        }
+        .main-wrap.view3d-mode .scan-grid > .panel-4 { grid-column: 1 !important; grid-row: 1 !important; border: none; border-radius: 0; }
+        .main-wrap.view3d-mode .scan-grid > .panel-4 .panel-header { display: none; }
+        .main-wrap.view3d-mode .scan-grid > :not(.panel-4),
+        .main-wrap.view3d-mode .plots-row,
+        .main-wrap.view3d-mode .table-section,
+        .main-wrap.view3d-mode > .resize-handle-v,
+        .main-wrap.view3d-mode > .resize-handle-h { display: none !important; }
+        /* A-Scan floated: hide A-Scan panel, Range fills both columns */
+        .main-wrap.ascan-floated .panel-1 { display: none; }
+        .main-wrap.ascan-floated .panel-2 { grid-column: 1 / -1; grid-row: 1; }
+        .main-wrap.ascan-floated #scanColSplitter { display: none; }
+        /* Network share badge */
+        .network-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 10px; border-radius: 20px;
+            font-size: 10px; font-weight: 600; letter-spacing: .04em;
+            background: rgba(0,212,255,.10); color: var(--accent);
+            border: 1px solid rgba(0,212,255,.25); cursor: pointer;
+            transition: all .15s; user-select: all;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .network-badge:hover {
+            background: rgba(0,212,255,.22);
+            box-shadow: 0 0 10px rgba(0,212,255,.2);
+        }
+        .network-badge.copied {
+            background: rgba(52,211,153,.15); color: #34d399;
+            border-color: rgba(52,211,153,.35);
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div style="display:flex;align-items:center;gap:12px">
+            <span class="topbar-title">C-Scan &amp; Pipe Tally Suite</span>
+            <span class="badge badge-live"><span class="status-dot"></span>Live</span>
+            <span class="badge badge-mode">DAR Mode</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+            <span class="topbar-meta">Line: <b style="color:#e2eaf5">POF-2021-07</b></span>
+            <span class="topbar-meta">Probe: <b style="color:#e2eaf5">5 MHz PA</b></span>
+            <span class="topbar-meta">Gain: <b style="color:#00d4ff">38.5 dB</b></span>
+            <span class="topbar-meta" id="clock"></span>
+            <span class="network-badge" id="networkBadge" title="Click to copy network link" onclick="copyNetworkUrl()">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <span id="networkUrlLabel">…</span>
+            </span>
+            <div style="width:1px;height:18px;background:var(--border);margin:0 4px"></div>
+            <button class="btn btn-toggle" id="btnLoadData" onclick="openLoadData()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Load Data
+            </button>
+            <button class="btn btn-toggle" id="btn3D" onclick="toggle3D()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                3D View
+            </button>
+            <button class="btn btn-success" id="btnDigsheet" onclick="openDigsheet()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Generate Digsheet
+            </button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="digsheetModal" onclick="if(event.target===this)closeDigsheet()">
+        <div class="modal-box" style="position:relative">
+            <button class="modal-close" onclick="closeDigsheet()">✕</button>
+            <div class="modal-title">📄 Generate Digsheet</div>
+            <div class="modal-sub">POF-2021-07  ·  Export inspection report</div>
+            <div class="modal-row"><span class="modal-label">Pipeline</span><span class="modal-value">POF-2021-07  ·  2,000 m</span></div>
+            <div class="modal-row"><span class="modal-label">Pipe Grade / OD / WT</span><span class="modal-value">X65  ·  304.8 mm  ·  10.0 mm</span></div>
+            <div class="modal-row"><span class="modal-label">Total Joints</span><span class="modal-value">18  (2 flagged)</span></div>
+            <div class="modal-row"><span class="modal-label">Defects Found</span><span class="modal-value">DEF-01 (18%WT), DEF-02 (11%WT)</span></div>
+            <div class="modal-row"><span class="modal-label">Output Format</span>
+                <span class="modal-value" style="display:flex;gap:6px">
+                    <label style="cursor:pointer;display:flex;align-items:center;gap:3px"><input type="radio" name="fmt" value="pdf" checked style="accent-color:#34d399"> PDF</label>
+                    <label style="cursor:pointer;display:flex;align-items:center;gap:3px"><input type="radio" name="fmt" value="xlsx" style="accent-color:#34d399"> XLSX</label>
+                    <label style="cursor:pointer;display:flex;align-items:center;gap:3px"><input type="radio" name="fmt" value="csv" style="accent-color:#34d399"> CSV</label>
+                </span>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-success" style="flex:1;justify-content:center" onclick="generateDigsheet()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export Now
+                </button>
+                <button class="btn btn-toggle" style="flex:1;justify-content:center" onclick="closeDigsheet()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">
+        <span class="toast-icon" id="toastIcon">✅</span>
+        <div><div class="toast-text" id="toastText">Digsheet exported</div><div class="toast-sub" id="toastSub">POF-2021-07_digsheet.pdf</div></div>
+    </div>
+
+    <input type="file" id="dataFileInput" accept=".json" style="display:none">
+
+    <div class="main-wrap">
+        <div class="scan-grid">
+            <div class="panel panel-1" id="aScanPanel">
+                <div class="panel-header">
+                    <span class="panel-title">1 · A-Scan</span>
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <span class="panel-tag tag-blue">RF Waveform</span>
+                        <button class="panel-btn panel-btn-grid" id="aScanFloatBtn" onclick="openAScanFloatTab()" title="Open A-Scan in a separate window">Float</button>
+                    </div>
+                </div>
+                <div class="panel-body" style="position:relative">
+                    <div class="vtk-container active" id="aScanVtkContainer" style="position:absolute"></div>
+                    <canvas id="aScanOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:auto;cursor:ns-resize"></canvas>
+                </div>
+            </div>
+            <div class="resize-handle-h" id="scanColSplitter"></div>
+            <div class="panel panel-2">
+                <div class="panel-header">
+                    <span class="panel-title">2 · Range Selection — Full Pipeline C-Scan</span>
+                    <span class="panel-tag tag-amber">Zoom Region</span>
+                </div>
+                <div class="panel-body" id="rangePanelBody" style="position:relative">
+                    <div class="vtk-container active" id="rangeVtkContainer" style="position:absolute"></div>
+                    <canvas id="rangeOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none"></canvas>
+                </div>
+            </div>
+            <div class="resize-handle-v" id="scanRowSplitter1"></div>
+            <div class="panel panel-3">
+                <div class="panel-header">
+                    <span class="panel-title">3 · B-Scan — Vertical Profile</span>
+                    <span class="panel-tag tag-green">ID &amp; WT · Vertical Slice</span>
+                </div>
+                <div class="panel-body" id="bScanPanelBody" style="position:relative">
+                    <div class="vtk-container active" id="bScanVtkContainer" style="position:absolute"></div>
+                    <canvas id="bScanOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none"></canvas>
+                </div>
+            </div>
+            <div class="panel panel-4">
+                <div class="panel-header">
+                    <span class="panel-title">4 · C-Scan — Master Controller</span>
+                    <span class="panel-tag tag-red">2 Defects</span>
+                </div>
+                <div class="panel-body" id="cScanPanelBody" style="position:relative">
+                    <div class="vtk-container active" id="vtkContainer" style="position:absolute"></div>
+                    <canvas id="cScanOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none"></canvas>
+                    <div class="tooltip" id="cTip"></div>
+                    <div class="color-popover" id="cScanColorPopover">
+                        <div class="color-popover-title">Color Scale</div>
+                        <div class="color-popover-sub">Adjust the active vtk lookup range</div>
+                        <div class="color-popover-row">
+                            <span class="color-popover-label">Min</span>
+                            <span class="color-popover-value" id="cScanColorMinValue">0%</span>
+                        </div>
+                        <input class="color-popover-slider" id="cScanColorMin" type="range" min="0" max="98" value="0" step="1">
+                        <div class="color-popover-row">
+                            <span class="color-popover-label">Max</span>
+                            <span class="color-popover-value" id="cScanColorMaxValue">100%</span>
+                        </div>
+                        <input class="color-popover-slider" id="cScanColorMax" type="range" min="2" max="100" value="100" step="1">
+                        <div class="color-popover-actions">
+                            <button class="panel-btn panel-btn-grid" id="cScanColorReset" type="button">Reset</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="resize-handle-v" id="scanRowSplitter2"></div>
+            <div class="panel panel-5">
+                <div class="panel-header">
+                    <span class="panel-title">5 · Circular B-Scan</span>
+                    <span class="panel-tag tag-blue" id="circJointTag">Circumferential</span>
+                </div>
+                <div class="panel-body" id="circPanelBody" style="position:relative">
+                    <div class="vtk-container active" id="circVtkContainer" style="position:absolute"></div>
+                    <canvas id="circCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none"></canvas>
+                    <div class="tooltip" id="circTip"></div>
+                </div>
+            </div>
+            <div class="panel panel-6">
+                <div class="panel-header">
+                    <span class="panel-title">6 · Long B-Scan — Horizontal Profile</span>
+                    <span class="panel-tag tag-amber">ID &amp; WT · Horizontal Slice</span>
+                </div>
+                <div class="panel-body" id="longPanelBody" style="position:relative">
+                    <div class="vtk-container active" id="longVtkContainer" style="position:absolute"></div>
+                    <canvas id="longOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="resize-handle-v" id="mainSplitter1" style="height:6px;margin:2px 0"></div>
+
+        <div class="plots-row">
+            <div class="panel chart-1">
+                <div class="panel-header">
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <span class="panel-title">Chart 1 · Scatter + ERF</span>
+                        <span style="font-size:8px;color:var(--text-sec);font-family:'JetBrains Mono',monospace">Pressure Sentenced</span>
+                    </div>
+                    <span class="panel-tag tag-red" id="scatterStatusTag">INT / EXT</span>
+                </div>
+                <div class="panel-body" id="scatterPanelBody" style="position:relative">
+                    <div class="vtk-container active" id="scatterVtkContainer" style="position:absolute"></div>
+                    <canvas id="scatterOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none"></canvas>
+                    <div class="tooltip" id="scatterTip"></div>
+                </div>
+            </div>
+            <div class="resize-handle-h" id="plotsSplitter1"></div>
+            <div class="panel chart-2">
+                <div class="panel-header">
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <span class="panel-title">Chart 2 · Histogram</span>
+                        <span style="font-size:8px;color:var(--text-sec);font-family:'JetBrains Mono',monospace">Pressure-Based</span>
+                    </div>
+                    <span class="panel-tag tag-green" id="histStatusTag">MIDDLE · ALL</span>
+                </div>
+                <div class="panel-body" id="histPanelBody" style="position:relative">
+                    <div class="vtk-container active" id="histVtkContainer" style="position:absolute"></div>
+                    <canvas id="histOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none"></canvas>
+                    <div class="tooltip" id="histTip"></div>
+                </div>
+            </div>
+            <div class="resize-handle-h" id="plotsSplitter2"></div>
+            <div class="panel chart-3">
+                <div class="panel-header">
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <span class="panel-title">Chart 3 · Tool Velocity</span>
+                        <span style="font-size:8px;color:var(--text-sec);font-family:'JetBrains Mono',monospace">Speed vs Distance</span>
+                    </div>
+                    <span class="panel-tag tag-blue" id="velocityStatusTag">WELD interp · m/s</span>
+                </div>
+                <div class="panel-body" id="velocityPanelBody" style="position:relative">
+                    <div class="vtk-container active" id="velocityVtkContainer" style="position:absolute"></div>
+                    <canvas id="velocityOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none"></canvas>
+                    <div class="tooltip" id="velocityTip"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="resize-handle-v" id="mainSplitter2" style="height:6px;margin:2px 0"></div>
+
+        <div class="table-section" id="tallyPanel">
+            <div class="table-header" id="tallyDragHandle">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#e2eaf5">Pipe Tally</span>
+                    <span class="badge badge-mode">POF 2021</span>
+                </div>
+                <div class="table-header-actions">
+                    <span style="font-size:10px;color:var(--text-sec)">Joints: <b style="color:#34d399" id="tallyJointCount">18</b></span>
+                    <span style="font-size:10px;color:var(--text-sec)">Total: <b style="color:#e2eaf5" id="tallyTotalLength">217.42 m</b></span>
+                    <span style="font-size:10px;color:var(--text-sec)">Flagged: <b style="color:#f43f5e" id="tallyFlaggedCount">2</b></span>
+                    <button class="panel-btn panel-btn-grid" onclick="openTallyFloatTab()" title="Open Pipe Tally in a separate browser window">Float</button>
+                </div>
+            </div>
+            <div class="table-grid-wrap">
+                <div id="tallyGrid" class="ag-theme-quartz tally-grid-theme"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
