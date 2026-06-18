@@ -30,12 +30,22 @@ export default defineConfig({
     port: 4173,
     strictPort: false,
   },
+  optimizeDeps: {
+    include: ['@kitware/vtk.js'],
+  },
   build: {
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
         tallyFloat: resolve(__dirname, 'pages/tally-float.html'),
         aScanFloat: resolve(__dirname, 'pages/aScan-float.html'),
+      },
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/@kitware/vtk.js') || id.includes('node_modules/wslink')) {
+            return 'vtk';
+          }
+        },
       },
     },
   },
