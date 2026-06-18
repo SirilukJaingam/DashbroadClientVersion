@@ -30,8 +30,13 @@ export default defineConfig({
     port: 4173,
     strictPort: false,
   },
+  resolve: {
+    alias: {
+      events: 'events',
+    },
+  },
   optimizeDeps: {
-    include: ['@kitware/vtk.js'],
+    include: ['@kitware/vtk.js', 'events'],
   },
   build: {
     rollupOptions: {

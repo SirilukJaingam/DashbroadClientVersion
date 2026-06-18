@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@kitware/vtk.js": "^36.0.1",
-    "ag-grid-community": "^35.3.0"
+    "ag-grid-community": "^35.3.0",
+    "events": "^3.3.0"
   },
   "devDependencies": {
     "chrome-devtools-mcp": "^1.0.1",
